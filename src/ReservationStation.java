@@ -3,12 +3,12 @@ package src;
 public class ReservationStation {
     int busy=0;
 	String op; //instruction
-	float Vj;
-	float Vk;
+	double Vj;
+	double Vk;
 	String Qj="";
 	String Qk="";
 	int time=0;
-	float result;
+	double result;
 	int idInInstrQueue;
 
     
