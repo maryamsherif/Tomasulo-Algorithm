@@ -31,7 +31,7 @@ public class Register {
     }
 
     public boolean regReady() {
-        if (Qi == null) {
+        if (Qi.equals("")) {
             return true;
         }
         return false;

@@ -1,12 +1,14 @@
 package src.Instructions;
 
 public class RegisterFile {
-    Register registers [] = new Register [32];
+    public Register registers [] = new Register [32];
 
     public RegisterFile() {
         for(int i = 0; i<32;i++) {
             registers[i] = new Register();
             registers[i].setName("F"+i);
+            //Set Q to empty string
+            registers[i].setQi("");
         }
     }
 
