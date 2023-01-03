@@ -30,7 +30,7 @@ public class origin {
     static double bus;
     static String busContent;
     static boolean ifWriteBack = false;
-
+    static Memory memory = new Memory();
 
 
 
@@ -72,8 +72,14 @@ public class origin {
 
              for(int i = 0; i<commands.size();i++) {
                  String [] result= ((String[])commands.get(i));
-        
+                
+                 if (result.length==4){
                      InstrQueue[i] = new InstructionQueue(result[0],result[1],result[2],result[3],-1,-1,-1,-1);
+                 }
+                 else {
+                    InstrQueue[i] = new InstructionQueue(result[0],result[1],result[2],"",-1,-1,-1,-1);
+                 }
+
              }
              return InstrQueue;
          }
@@ -121,40 +127,91 @@ public class origin {
                 int mulResEmpty = isRSEmpty(MulDivStation);
                 int loadBuffEmpty = isLoadBuffEmpty(LoadBuff);
                 int storeBuffEmpty = isStoreBuffEmpty(StoreBuff);
-               while(!finish()) {
+            
+                while(!finish()) {
                       //-------------------------------------------WRITE BACK-------------------------------------------
                 //Write Back ADD/SUB
                 for(int i=0;i<addSubStation.length;i++){
                     if(addSubStation[i].busy==1 && addSubStation[i].time==0 && ifWriteBack==false){
+                        ifWriteBack=true;
+                        bus=addSubStation[i].result;
+                        busContent="A"+(i+1);
+                        addSubStation[i].busy=0;
+
                         int idInInstrQueue=addSubStation[i].idInInstrQueue;
-                        //if(InstrQueue[idInInstrQueue].endTime==cycle){
-                            System.out.println("HEEERRREEE");
-                            regFile.updateRegister(InstrQueue[idInInstrQueue].d, addSubStation[i].result);
-                            regFile.setQi(InstrQueue[idInInstrQueue].d, " ");
-                            addSubStation[i].busy=0;
+                        InstrQueue[idInInstrQueue].wbTime=cycle;
                             addSubStation[i].op=null;
                             addSubStation[i].Vj=0.0;
                             addSubStation[i].Vk=0.0;
                             addSubStation[i].Qj.equals("");
                             addSubStation[i].Qk.equals("");
-                            int id=addSubStation[i].idInInstrQueue;
-                            InstrQueue[id].wbTime=cycle;
-                            ifWriteBack=true;
-                            System.out.println(bus);
 
-                            bus=addSubStation[i].result;
-                            busContent="A"+(i+1);
-                            System.out.println(bus);
                             break;
                         
                     }
                 }
 
+                //Write Back MUL/DIV
+                for(int i=0;i<MulDivStation.length;i++){
+                    if(MulDivStation[i].busy==1 && MulDivStation[i].time==0 && ifWriteBack==false){
+                        ifWriteBack=true;
+                        bus=MulDivStation[i].result;
+                        busContent="M"+(i+1);
+                        MulDivStation[i].busy=0;
+
+                        int idInInstrQueue=MulDivStation[i].idInInstrQueue;
+                        InstrQueue[idInInstrQueue].wbTime=cycle;
+                
+                            MulDivStation[i].op=null;
+                            MulDivStation[i].Vj=0.0;
+                            MulDivStation[i].Vk=0.0;
+                            MulDivStation[i].Qj.equals("");
+                            MulDivStation[i].Qk.equals("");
+                            break;
+                        
+                    }
+                }
+                //Write Back LOAD
+                for(int i=0;i<LoadBuff.length;i++){
+                    if(LoadBuff[i].busy==1 && LoadBuff[i].time==0 && ifWriteBack==false){
+                        ifWriteBack=true;
+                        bus=LoadBuff[i].result;
+                        busContent="L"+(i+1);
+                        LoadBuff[i].busy=0;
+
+                        int idInInstrQueue=LoadBuff[i].idInInstrQueue;
+                        InstrQueue[idInInstrQueue].wbTime=cycle;
+
+                            
+                        LoadBuff[i].address=-1;
+                        break;
+                        
+                    }
+                }
+
+                 //Write Back STORE
+                 for(int i=0;i<StoreBuff.length;i++){
+                    if(StoreBuff[i].busy==1 && StoreBuff[i].time==0 && ifWriteBack==false){
+                        ifWriteBack=true;
+                        StoreBuff[i].busy=0;
+
+                        int idInInstrQueue=StoreBuff[i].idInInstrQueue;
+                        InstrQueue[idInInstrQueue].wbTime=cycle;
+
+                            
+                        StoreBuff[i].address=-1;
+                        break;
+                        
+                    }
+                }
+
+
+
+
                  //-------------------------------------------EXECUTE-------------------------------------------
                 //Execute ADD/SUB 
                 for(int i=0;i<addSubStation.length;i++){
-                    if(addSubStation[i].busy==1 &&  addSubStation[i].time>0){
-                        if(addSubStation[i].Qj.equals(" ") && addSubStation[i].Qk.equals(" ")){
+                    if(addSubStation[i].busy==1 &&  addSubStation[i].time>0 && addSubStation[i].Qj.equals(" ") && addSubStation[i].Qk.equals(" ")){
                             if (addSubStation[i].op.equals("ADD.D") && addSubStation[i].time==addL || addSubStation[i].op.equals("SUB.D") && addSubStation[i].time==subL){
                                 int id=addSubStation[i].idInInstrQueue;
                                 InstrQueue[id].startTime = cycle;
@@ -172,106 +229,200 @@ public class origin {
                             }
                         }
                     }
-                }
 
-
-                  //-------------------------------------------ISSUE-------------------------------------------
-                if(issue<InstrQueue.length) {
-                for (int i = 0; i < InstrQueue.length; i++) {  //need a method to check if all instruction finished or not (write back is not empty)
-                    if(InstrQueue[i].issue == -1) {
-                        //check if reservation station is empty or not
-                        if(InstrQueue[i].instruction.equals("ADD.D") || InstrQueue[i].instruction.equals("SUB.D")) {
-                           
-                            if(isRSEmpty(addSubStation)!=-1) {
-                                //issue instruction
-                                InstrQueue[i].issue = cycle;
-                                //find empty reservation station
-                                    if(addSubStation[addResEmpty].busy == 0) {
-                                        //empty
-                                        addSubStation[addResEmpty].busy = 1;
-                                        addSubStation[addResEmpty].op = InstrQueue[i].instruction; 
-                                        
-                                        if (regFile.regFileReady((InstrQueue[i].j))){ //check if op1 is available
-                                            addSubStation[addResEmpty].Vj = regFile.getRegFileValue(InstrQueue[i].j);
-                                            addSubStation[addResEmpty].Qj = " ";
-                                        }
-                                      else {
-                                            addSubStation[addResEmpty].Vj = 0;
-                                            addSubStation[addResEmpty].Qj = regFile.getQi(InstrQueue[i].j);
-                                        }
-                                        if (regFile.regFileReady((InstrQueue[i].k))){ //check if op2 is available
-                                            addSubStation[addResEmpty].Vk = regFile.getRegFileValue(InstrQueue[i].k);
-                                            addSubStation[addResEmpty].Qk = " ";
-                                        }
-                                        else {
-                                            addSubStation[addResEmpty].Vk = 0;
-                                            addSubStation[addResEmpty].Qk = regFile.getQi(InstrQueue[i].k);
-                                        }
-                                        
-                                        if (InstrQueue[i].instruction.equals("ADD.D")) {
-                                            addSubStation[addResEmpty].time= addL;
-                                        }
-                                        else if (InstrQueue[i].instruction.equals("SUB.D")) {
-                                            addSubStation[addResEmpty].time= subL;
-                                        }
-
-                                       //2 InstrQueue[i].startTime = cycle;
-                                        regFile.setQi(InstrQueue[i].d, "A"+(addResEmpty+1));
-                                            break;
-
-                                        }
-                                      
-                                    }
-                                    addSubStation[addResEmpty].idInInstrQueue=issue;
-                                    issue++;
-                                }
+                      //Execute MUL/DIV 
+                    for(int i=0;i<MulDivStation.length;i++){
+                        if(MulDivStation[i].busy==1 &&  MulDivStation[i].time>0 && MulDivStation[i].Qj.equals(" ") && MulDivStation[i].Qk.equals(" ")){
+                            if (MulDivStation[i].op.equals("MUL.D") && MulDivStation[i].time==mulL || MulDivStation[i].op.equals("DIV.D") && MulDivStation[i].time==divL){
+                                int id=MulDivStation[i].idInInstrQueue;
+                                InstrQueue[id].startTime = cycle;
                             }
-                        
-                        else if(InstrQueue[i].instruction.equals("MUL") || InstrQueue[i].instruction.equals("DIV")) {
-                            if(isRSEmpty(MulDivStation)!=-1) {
-                                //issue instruction
-                                InstrQueue[i].issue = cycle;
-                                //find empty reservation station
-                                for(int j = 0; j<MulDivStation.length;j++) {
-                                    if(MulDivStation[j].busy == 0) {
-                                        //empty
-                                        MulDivStation[j].busy = 1;
-                                        MulDivStation[j].op = InstrQueue[i].instruction;
-                                        // MulDivStation[j].Vj = InstrQueue[i].j;
-                                        // MulDivStation[j].Vk = InstrQueue[i].k;
-                                        MulDivStation[j].Qj = " ";
-                                        MulDivStation[j].Qk = " ";
-                                        // MulDivStation[j].A = " ";
-                                        InstrQueue[i].startTime = cycle;
-                                        break;
-                                    }
+                            MulDivStation[i].time--;
+                            if(MulDivStation[i].time==0){
+                                if (MulDivStation[i].op.equals("MUL.D")){
+                                    MulDivStation[i].result = MulDivStation[i].Vj * MulDivStation[i].Vk;
                                 }
-                            }
-                        }
-                        else if(InstrQueue[i].instruction.equals("LD")) {
-                            if(isLoadBuffEmpty(LoadBuff)!=-1) {
-                                //issue instruction
-                                InstrQueue[i].issue = cycle;
-                                //find empty reservation station
-                                for(int j = 0; j<LoadBuff.length;j++) {
-                                    if(LoadBuff[j].busy == 0) {
-                                        //empty
-                                        LoadBuff[j].busy = 1;
-                                        // LoadBuff[j].op = InstrQueue[i].instruction;
-                                        // LoadBuff[j].A = InstrQueue[i].j;
-                                        // LoadBuff[j].Qj = " ";
-                                        // LoadBuff[j].Qk = " ";
-                                        // LoadBuff[j].time = loadL;
-                                        InstrQueue[i].startTime = cycle;
-                                        break;
-
-
-                                    } 
+                                else if (MulDivStation[i].op.equals("DIV.D")){
+                                    MulDivStation[i].result = MulDivStation[i].Vj / MulDivStation[i].Vk;
                                 }
+                                int idInInstrQueue=MulDivStation[i].idInInstrQueue;
+                                InstrQueue[idInInstrQueue].endTime=cycle;
                             }
                         }
                     }
+
+                    //EXECUTE LD 
+                     for(int i=0;i<LoadBuff.length;i++){
+                        if(LoadBuff[i].busy==1 &&  LoadBuff[i].time>0){
+                            if ( LoadBuff[i].time==loadL ){
+                                int id=LoadBuff[i].idInInstrQueue;
+                                InstrQueue[id].startTime = cycle;
+                            }
+                            LoadBuff[i].time--;
+                            if(LoadBuff[i].time==0){
+                                 LoadBuff[i].result=memory.memoryValues[LoadBuff[i].address];
+                                int idInInstrQueue=LoadBuff[i].idInInstrQueue;
+                                InstrQueue[idInInstrQueue].endTime=cycle;
+                            }
+                        }
+                    }
+
+                    //EXECUTE SD
+                    for(int i=0;i<StoreBuff.length;i++){
+                        if(StoreBuff[i].busy==1 && StoreBuff[i].Qi.equals("") && StoreBuff[i].time>0){
+                            if ( StoreBuff[i].time==storeL ){
+                                int id=StoreBuff[i].idInInstrQueue;
+                                InstrQueue[id].startTime = cycle;
+                            }
+                            StoreBuff[i].time--;
+                            if(StoreBuff[i].time==0){
+                                memory.memoryValues[StoreBuff[i].address]=StoreBuff[i].result;
+                                int idInInstrQueue=StoreBuff[i].idInInstrQueue;
+                                InstrQueue[idInInstrQueue].endTime=cycle;
+                            }
+                        }
+                    }
+
+
+                  //-------------------------------------------ISSUE-------------------------------------------
+                  
+                if(issue<InstrQueue.length) {
+
+                    //ISSUE ADD/SUB: 
+                        //check if reservation station is empty or not
+                        String operation=InstrQueue[issue].instruction;
+                        if(operation.equals("ADD.D") || operation.equals("SUB.D")) {
+                              addResEmpty =isRSEmpty(addSubStation);
+                            if(isRSEmpty(addSubStation)!=-1) {
+                                //issue instruction
+                                        InstrQueue[issue].issue = cycle;
+                                        addSubStation[addResEmpty].busy = 1;
+                                        addSubStation[addResEmpty].op = operation; 
+                                        
+                                        if (regFile.regFileReady((InstrQueue[issue].j))){ //check if op1 is available
+                                            addSubStation[addResEmpty].Vj = regFile.getRegFileValue(InstrQueue[issue].j);
+                                            addSubStation[addResEmpty].Qj = " ";
+                                        }
+                                      else {
+                                            addSubStation[addResEmpty].Qj = regFile.getQi(InstrQueue[issue].j);
+                                        }
+                                        if (regFile.regFileReady((InstrQueue[issue].k))){ //check if op2 is available
+                                            addSubStation[addResEmpty].Vk = regFile.getRegFileValue(InstrQueue[issue].k);
+                                            addSubStation[addResEmpty].Qk = " ";
+                                        }
+                                        else {
+                                            addSubStation[addResEmpty].Qk = regFile.getQi(InstrQueue[issue].k);
+                                        }
+                                        
+                                        if (InstrQueue[issue].instruction.equals("ADD.D")) {
+                                            addSubStation[addResEmpty].time= addL;
+                                        }
+                                        else if (InstrQueue[issue].instruction.equals("SUB.D")) {
+                                            addSubStation[addResEmpty].time= subL;
+                                        }
+                                        regFile.setQi(InstrQueue[issue].d, "A"+(addResEmpty+1));
+                                            
+
+                                        
+                                      
+                                    
+                                    addSubStation[addResEmpty].idInInstrQueue=issue;
+                                    issue++;
+                                }
+                        }
+                        //ISSUE MUL/DIV
+                        else if(operation.equals("MUL.D") || operation.equals("DIV.D")) {
+                              mulResEmpty =isRSEmpty(MulDivStation);
+                            if(isRSEmpty(MulDivStation)!=-1) {
+                                //issue instruction
+                                        InstrQueue[issue].issue = cycle;
+                                        MulDivStation[mulResEmpty].busy = 1;
+                                        MulDivStation[mulResEmpty].op = operation; 
+                                        
+                                        if (regFile.regFileReady((InstrQueue[issue].j))){ //check if op1 is available
+                                            MulDivStation[mulResEmpty].Vj = regFile.getRegFileValue(InstrQueue[issue].j);
+                                            MulDivStation[mulResEmpty].Qj = " ";
+                                        }
+                                      else {
+                                        MulDivStation[mulResEmpty].Qj = regFile.getQi(InstrQueue[issue].j);
+                                        }
+                                        if (regFile.regFileReady((InstrQueue[issue].k))){ //check if op2 is available
+                                            MulDivStation[mulResEmpty].Vk = regFile.getRegFileValue(InstrQueue[issue].k);
+                                            MulDivStation[mulResEmpty].Qk = " ";
+                                        }
+                                        else {
+                                            MulDivStation[mulResEmpty].Qk = regFile.getQi(InstrQueue[issue].k);
+                                        }
+                                        
+                                        if (InstrQueue[issue].instruction.equals("MUL.D")) {
+                                            MulDivStation[mulResEmpty].time= mulL;
+                                        }
+                                        else if (InstrQueue[issue].instruction.equals("DIV.D")) {
+                                            MulDivStation[mulResEmpty].time= divL;
+                                        }
+                                        regFile.setQi(InstrQueue[issue].d, "M"+(mulResEmpty+1));
+                                    
+                                        MulDivStation[mulResEmpty].idInInstrQueue=issue;
+                                    issue++;
+                                }
+                        }
+                        //ISSUE LOAD
+                        else if(operation.equals("L.D"))
+                        {
+                             loadBuffEmpty=isLoadBuffEmpty(LoadBuff);
+                            if(loadBuffEmpty!=-1)
+                            {
+                                InstrQueue[issue].issue=cycle;
+                                LoadBuff[loadBuffEmpty].busy=1; 
+                                int address=Integer.parseInt(InstrQueue[issue].j);
+                                LoadBuff[loadBuffEmpty].address=address;
+                                LoadBuff[loadBuffEmpty].time=loadL;
+                                String destination=InstrQueue[issue].d;
+                                int n=loadBuffEmpty+1;
+                                String s = "L"+n;
+                                regFile.setQi(destination,s);                          
+                                LoadBuff[loadBuffEmpty].idInInstrQueue=issue;
+                                issue++;
+                            }
+                        }
+                              //ISSUE STORE
+                              else if(operation.equals("S.D"))
+                              {
+                                   storeBuffEmpty=isStoreBuffEmpty(StoreBuff);
+                                  if(storeBuffEmpty!=-1)
+                                  {
+                                      InstrQueue[issue].issue=cycle;
+                                      StoreBuff[storeBuffEmpty].busy=1; 
+                                      
+                                      int address=Integer.parseInt(InstrQueue[issue].j);
+                                      StoreBuff[storeBuffEmpty].address=address;
+                                      System.out.print("nbbbbbbb");
+                                      System.out.println(InstrQueue[issue].d);
+                                      System.out.println(regFile.getRegFileValue(InstrQueue[issue].d));
+                                      System.out.println(regFile.regFileReady(InstrQueue[issue].d));
+                          if(regFile.regFileReady(InstrQueue[issue].d)) //check if value is available
+							{
+								StoreBuff[storeBuffEmpty].Vi=regFile.getRegFileValue(InstrQueue[issue].d);
+								StoreBuff[storeBuffEmpty].Qi="";
+							}
+						else {
+                        StoreBuff[storeBuffEmpty].Qi=regFile.getQi(InstrQueue[issue].d);
+                        StoreBuff[storeBuffEmpty].Vi=0;
+                        }
+                         StoreBuff[storeBuffEmpty].time=storeL;
+
+                         StoreBuff[storeBuffEmpty].idInInstrQueue=issue;
+                          issue++;
+                                  
+                              }
+
+                    }
                 }
+
+                      
+                            
+                        
+                    
 
               
                 //check bus content 
@@ -297,6 +448,14 @@ public class origin {
                         MulDivStation[i].Qk=" ";
                     }
                 }
+                for(int i=0;i<StoreBuff.length;i++)
+			{
+				if(ifWriteBack && StoreBuff[i].busy==1 && StoreBuff[i].Qi.equals(busContent))
+				{
+					StoreBuff[i].Vi=bus;
+					StoreBuff[i].Qi="";
+				}
+			}
                //Register File
                System.out.println("Register File");
                 for(int i=0;i<regFile.registers.length;i++){
@@ -313,15 +472,12 @@ public class origin {
                }
             ifWriteBack=false;
             bus=0;
-            busContent=" ";
+            busContent=null;
             cycle++;
-            if (cycle==7){
-                break;
-            }
-
             printings();
+
                }
-            }
+}
 
             //finish method
             public static boolean finish(){
@@ -356,6 +512,21 @@ public class origin {
                 for(int i=0;i<MulDivStation.length;i++){
                     System.out.println(MulDivStation[i].busy+"\t"+MulDivStation[i].op+"\t"+MulDivStation[i].Vj+"\t"+MulDivStation[i].Vk+"\t"+MulDivStation[i].Qj+"\t"+MulDivStation[i].Qk+"\t"+MulDivStation[i].time);
                 }
+                //print load buffer 
+                System.out.println("Load Buffer");
+                System.out.println("Busy \t address");
+                for(int i=0;i<LoadBuff.length;i++){
+                    System.out.println(LoadBuff[i].busy+"\t"+LoadBuff[i].address);
+                }
+                //print store buffer
+                System.out.println("Store Buffer");
+                System.out.println("Busy \t address \t Vi \t Qi");
+                for(int i=0;i<StoreBuff.length;i++){
+                    System.out.println(StoreBuff[i].busy+"\t"+StoreBuff[i].address+"\t"+StoreBuff[i].Vi+"\t"+StoreBuff[i].Qi);
+                }
+                
+
+
                 System.out.println(" ");
                 //print register file
                 System.out.println("Register File");
@@ -411,13 +582,13 @@ public class origin {
             e.printStackTrace();
         }
         //Print the input file
-        // for(int i = 0; i<commands.size();i++) {
-        //     String [] result= ((String[])commands.get(i));
-        //     for(int j = 0; j<result.length;j++) {
-        //         System.out.print(result[j]+" ");
-        //     }
-        //     System.out.println();
-        // }
+        for(int i = 0; i<commands.size();i++) {
+            String [] result= ((String[])commands.get(i));
+            for(int j = 0; j<result.length;j++) {
+                System.out.print(result[j]+" ");
+            }
+            System.out.println();
+        }
 
         //Take input from user to initialize the register file needed registers
         Scanner sc = new Scanner(System.in);
@@ -440,14 +611,14 @@ public class origin {
         addL = sc.nextInt();
         System.out.println("Enter the latency of SUB unit");
         subL = sc.nextInt();
-        // System.out.println("Enter the latency of MUL unit");
-        // mulL = sc.nextInt();
-        // System.out.println("Enter the latency of DIV unit");
-        // divL = sc.nextInt();
-        // System.out.println("Enter the latency of LD unit");
-        // loadL = sc.nextInt();
-        // System.out.println("Enter the latency of SD unit");
-        // storeL = sc.nextInt();
+        System.out.println("Enter the latency of MUL unit");
+        mulL = sc.nextInt();
+        System.out.println("Enter the latency of DIV unit");
+        divL = sc.nextInt();
+        System.out.println("Enter the latency of LD unit");
+        loadL = sc.nextInt();
+        System.out.println("Enter the latency of SD unit");
+        storeL = sc.nextInt();
 
 
 
@@ -461,7 +632,18 @@ public class origin {
 
         //Initialize the instruction queue
         InstrQueue= IQueue(commands);
-        tomasulo();
+        //print instruction queue
+        // System.out.println("Instruction Queue");
+        // for(int i=0;i<InstrQueue.length;i++){
+        //     System.out.println("d: "+InstrQueue[i].d);
+        //     System.out.println("j: "+InstrQueue[i].j);
+        //     System.out.println("k: "+InstrQueue[i].k);
+
+        // }
+        // System.out.println(" ");
+       
+
+       tomasulo();
             
 
 

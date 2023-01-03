@@ -6,6 +6,9 @@ public class Memory {
     boolean found ;
  
     public Memory(){
+		memoryValues[10]=10;
+		memoryValues[20]=20;
+		
 
     }
     public double readData(int address) {
